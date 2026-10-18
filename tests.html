@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tests</title>
+</head>
+<body>
+  <h1>Tests</h1>
+  <p id="summary" role="status"></p>
+  <ul id="out"></ul>
+  <script type="module">
+    import { check, clean, isValidRecord } from './scripts/validators.js';
+    import { compileRegex, highlight } from './scripts/search.js';
+    import { parseImport } from './scripts/storage.js';
+
+    const out = document.querySelector('#out');
+    let passed = 0, total = 0;
+    function test(name, ok) {
+      total++; if (ok) passed++;
+      const li = document.createElement('li');
+      li.textContent = (ok ? 'PASS: ' : 'FAIL: ') + name;
+      li.style.color = ok ? '#0a6b0a' : '#a4262c';
+      out.append(li);
+    }
+
+    // Description
+    test('description rejects leading space', check('description', ' Lunch') !== '');
+    test('description accepts normal text', check('description', 'Lunch at cafeteria') === '');
+    test('duplicate word rejected (back-reference)', check('description', 'the the') !== '');
+    test('clean collapses double spaces', clean('a   b') === 'a b');
+
+    // Amount
+    test('amount accepts 12.50', check('amount', '12.50') === '');
+    test('amount rejects 012', check('amount', '012') !== '');
+    test('amount rejects 1.234', check('amount', '1.234') !== '');
+
+    // Date
+    test('date accepts 2025-09-29', check('date', '2025-09-29') === '');
+    test('date rejects month 13', check('date', '2025-13-01') !== '');
+
+    // Category
+    test('category accepts Food', check('category', 'Food') === '');
+    test('category rejects digits', check('category', 'Food2') !== '');
+
+    // Search
+    test('invalid regex returns null', compileRegex('(') === null);
+    test('highlight wraps match in mark', highlight('coffee', /cof/i) === '<mark>cof</mark>fee');
+    test('highlight escapes HTML', !highlight('<b>x</b>', null).includes('<b>'));
+
+    // Records and import
+    const good = { id: 'a1', description: 'x', amount: 1, category: 'Food', date: '2025-01-01' };
+    test('valid record accepted', isValidRecord(good));
+    test('record with bad date rejected', !isValidRecord({ ...good, date: 'nope' }));
+    let threw = false;
+    try { parseImport('not json'); } catch { threw = true; }
+    test('malformed JSON import throws', threw);
+
+    document.querySelector('#summary').textContent = passed + ' of ' + total + ' tests passed.';
+  </script>
+</body>
+</html>
